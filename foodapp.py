@@ -184,38 +184,47 @@ with tab3:
 if st.session_state.recipe_data:
     recipe = st.session_state.recipe_data
     
-    st.markdown("---")
-    st.header(recipe["title"])
-    
-    # Save Button
-    if st.button("💾 Save Recipe to Local Collection"):
-        is_saved = save_recipe_to_disk(recipe)
-        if is_saved:
-            st.success("Recipe successfully saved to your collection!")
-        else:
-            st.info("This recipe is already saved in your collection.")
-    
-    # Interactive Servings Slider
-    st.subheader("⚖️ Dynamic Scaling")
-    new_servings = st.slider(
-        "Adjust servings to recalculate quantities:", 
-        min_value=1, 
-        max_value=24, 
-        value=recipe.get("original_servings", 4)
-    )
-    
-    # Calculate multiplier safely
-    orig_servings = recipe.get("original_servings", 4)
-    multiplier = new_servings / orig_servings if orig_servings else 1
-    
-    # Display Scaled Ingredients
-    st.markdown(f"### 🛒 Ingredients (Scaled for {new_servings} servings)")
-    for ing in recipe.get("ingredients", []):
-        amount = ing.get("amount")
-        scaled_amount = round(amount * multiplier, 2) if amount is not None else ""
-        st.write(f"- **{scaled_amount} {ing.get('unit', '')}** of {ing.get('name', '')}")
+    # Safety Check: Ensure ingredients and steps exist before rendering
+    if not recipe.get("ingredients") or not recipe.get("steps"):
+        st.error("The AI could not extract the recipe correctly. Please try again or provide more text/clearer image.")
+        if st.button("Clear Error"):
+            st.session_state.recipe_data = None
+            st.rerun()
+    else:
+        st.markdown("---")
+        st.header(recipe.get("title", "Untitled Recipe"))
         
-    # Display Steps
-    st.markdown("### 👩‍🍳 Instructions")
-    for i, step in enumerate(recipe.get("steps", []), 1):
-        st.write(f"**Step {i}:** {step}")
+        # Save Button
+        if st.button("💾 Save Recipe to Local Collection"):
+            is_saved = save_recipe_to_disk(recipe)
+            if is_saved:
+                st.success("Recipe successfully saved!")
+            else:
+                st.info("Recipe already exists in your collection.")
+        
+        # Interactive Servings Slider
+        st.subheader("⚖️ Dynamic Scaling")
+        new_servings = st.slider(
+            "Adjust servings to recalculate quantities:", 
+            min_value=1, 
+            max_value=24, 
+            value=recipe.get("original_servings", 4)
+        )
+        
+        # Calculate multiplier safely
+        orig_servings = recipe.get("original_servings", 4)
+        multiplier = new_servings / orig_servings if orig_servings else 1
+        
+        # Display Scaled Ingredients
+        st.markdown(f"### 🛒 Ingredients (Scaled for {new_servings} servings)")
+        for ing in recipe.get("ingredients", []):
+            amount = ing.get("amount", 0)
+            unit = ing.get("unit", "")
+            name = ing.get("name", "Ingredient")
+            scaled_amount = round(amount * multiplier, 2)
+            st.write(f"- **{scaled_amount} {unit}** of {name}")
+            
+        # Display Steps
+        st.markdown("### 👩‍🍳 Instructions")
+        for i, step in enumerate(recipe.get("steps", []), 1):
+            st.write(f"**Step {i}:** {step}")
