@@ -61,13 +61,18 @@ with tab1:
             if not client:
                 st.error("Gemini API Key is missing! Set GEMINI_API_KEY environment variable or in Streamlit secrets.")
             else:
-                with st.spinner("Processing image with AI..."):
+                with st.spinner("Processing image strictly with AI..."):
                     try:
                         prompt = """
-                        Extract a clean recipe from this recipe card image. 
-                        Return it strictly as a valid JSON object with this structure:
+                        You are a strict data extraction assistant. Extract the recipe EXACTLY as it appears in this image. 
+                        CRITICAL RULES:
+                        1. Do NOT invent, guess, or change any ingredients or steps. 
+                        2. Only use the exact ingredients and steps present in the image. Do not replace them with a generic recipe.
+                        3. If an amount is missing or unclear, set amount to 1.0 or 0.
+                        
+                        Return it strictly as a valid JSON object with this exact structure:
                         {
-                            "title": "Recipe Title",
+                            "title": "Exact Title from Image",
                             "original_servings": 4,
                             "ingredients": [
                                 {"name": "ingredient name", "amount": 2.0, "unit": "unit"}
@@ -79,7 +84,7 @@ with tab1:
                         Return ONLY the JSON without markdown formatting blocks.
                         """
                         response = client.models.generate_content(
-                            model='gemini-3.6-flash',  # Updated to current active model
+                            model='gemini-3.6-flash',
                             contents=[image, prompt]
                         )
                         clean_text = response.text.strip()
@@ -106,15 +111,20 @@ with tab2:
             if not client:
                 st.error("Gemini API Key is missing! Set GEMINI_API_KEY environment variable or in Streamlit secrets.")
             else:
-                with st.spinner("Processing recipe with AI..."):
+                with st.spinner("Processing recipe strictly with AI..."):
                     try:
                         prompt = f"""
-                        Here is a cooking video transcript text (could be in English, Hindi, or Marathi):
+                        You are a strict data extraction assistant. Here is a cooking video transcript text (could be in English, Hindi, or Marathi):
                         {yt_transcript_text}
                         
-                        Extract a clean recipe from this transcript and return it strictly as a valid JSON object with this structure:
+                        CRITICAL RULES:
+                        1. Extract the recipe EXACTLY as spoken/written in the transcript. 
+                        2. Do NOT invent, assume, or substitute ingredients. 
+                        3. If exact quantities are not mentioned in the transcript, list the ingredient with amount 1.0 and unit "as required".
+                        
+                        Return it strictly as a valid JSON object with this structure:
                         {{
-                            "title": "Recipe Title",
+                            "title": "Recipe Title from Transcript",
                             "original_servings": 4,
                             "ingredients": [
                                 {{"name": "ingredient name", "amount": 2.0, "unit": "unit"}}
@@ -126,7 +136,7 @@ with tab2:
                         Return ONLY the JSON without markdown formatting blocks.
                         """
                         response = client.models.generate_content(
-                            model='gemini-3.6-flash',  # Updated to current active model
+                            model='gemini-3.6-flash',
                             contents=prompt
                         )
                         clean_text = response.text.strip()
