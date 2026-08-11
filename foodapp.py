@@ -55,7 +55,6 @@ with tab1:
 
     if uploaded_file is not None:
         image = Image.open(uploaded_file)
-        # Updated to use modern width parameter syntax instead of use_container_width
         st.image(image, caption="Original Recipe Card", width='stretch')
         
         if st.button("✨ Extract Recipe from Image"):
@@ -80,7 +79,7 @@ with tab1:
                         Return ONLY the JSON without markdown formatting blocks.
                         """
                         response = client.models.generate_content(
-                            model='gemini-2.5-flash',  # Updated to active model
+                            model='gemini-3.6-flash',  # Updated to current active model
                             contents=[image, prompt]
                         )
                         clean_text = response.text.strip()
@@ -127,7 +126,7 @@ with tab2:
                         Return ONLY the JSON without markdown formatting blocks.
                         """
                         response = client.models.generate_content(
-                            model='gemini-2.5-flash',  # Updated to active model
+                            model='gemini-3.6-flash',  # Updated to current active model
                             contents=prompt
                         )
                         clean_text = response.text.strip()
