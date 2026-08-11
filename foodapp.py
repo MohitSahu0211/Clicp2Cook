@@ -2,6 +2,7 @@ import streamlit as st
 from PIL import Image
 import json
 import os
+import time
 from google import genai
 from google.genai import types
 
@@ -36,6 +37,26 @@ def save_recipe_to_disk(recipe):
         return True
     return False
 
+# Helper function with automatic retry for server busy (503) errors
+def generate_recipe_with_retry(contents, prompt_config):
+    max_retries = 3
+    wait_time = 2
+    for attempt in range(max_retries):
+        try:
+            response = client.models.generate_content(
+                model="gemini-3.6-flash",
+                contents=contents,
+                config=prompt_config
+            )
+            return response
+        except Exception as e:
+            if "503" in str(e) or "UNAVAILABLE" in str(e):
+                if attempt < max_retries - 1:
+                    time.sleep(wait_time)
+                    wait_time *= 2  # Exponential backoff
+                    continue
+            raise e
+
 # Initialize session state
 if "recipe_data" not in st.session_state:
     st.session_state.recipe_data = None
@@ -56,72 +77,13 @@ with tab1:
             if not client:
                 st.error("Gemini API key is missing! Set it in environment variables or Streamlit secrets.")
             else:
-                with st.spinner("Gemini is reading your recipe card..."):
+                with st.spinner("Gemini is reading your recipe card (retrying if servers are busy)..."):
                     try:
                         prompt = """
                         You are a strict data-entry parser. Look at this image and extract the recipe verbatim.
                         Map the extracted recipe strictly into the requested JSON schema. Do not invent or substitute ingredients.
                         """
-                        response = client.models.generate_content(
-                            model="gemini-3.6-flash",
-                            contents=[image, prompt],
-                            config={
-                                "response_mime_type": "application/json",
-                                "response_schema": {
-                                    "type": "OBJECT",
-                                    "properties": {
-                                        "title": {"type": "STRING"},
-                                        "original_servings": {"type": "INTEGER"},
-                                        "ingredients": {
-                                            "type": "ARRAY",
-                                            "items": {
-                                                "type": "OBJECT",
-                                                "properties": {
-                                                    "name": {"type": "STRING"},
-                                                    "amount": {"type": "NUMBER"},
-                                                    "unit": {"type": "STRING"}
-                                                },
-                                                "required": ["name", "amount", "unit"]
-                                            }
-                                        },
-                                        "steps": {
-                                            "type": "ARRAY",
-                                            "items": {"type": "STRING"}
-                                        }
-                                    },
-                                    "required": ["title", "original_servings", "ingredients", "steps"]
-                                }
-                            }
-                        )
-                        st.session_state.recipe_data = json.loads(response.text)
-                        st.success("Successfully extracted recipe from image!")
-                    except Exception as e:
-                        st.error(f"Failed to process image: {e}")
-
-# --- TAB 2: YouTube Video Link ---
-with tab2:
-    st.header("Extract Recipe from YouTube Link")
-    yt_url = st.text_input("Paste YouTube Video URL here:", placeholder="https://www.youtube.com/watch?v=...")
-
-    if st.button("✨ Extract Recipe from Video"):
-        if not yt_url:
-            st.warning("Please enter a valid YouTube URL.")
-        elif not client:
-            st.error("Gemini API key is missing! Set it in environment variables or Streamlit secrets.")
-        else:
-            with st.spinner("Gemini is analyzing the cooking video directly..."):
-                try:
-                    prompt = """
-                    You are a strict data-entry parser. Watch this cooking video and extract the recipe verbatim.
-                    Map the extracted recipe strictly into the requested JSON schema. Do not invent or substitute ingredients.
-                    """
-                    response = client.models.generate_content(
-                        model="gemini-3.6-flash",
-                        contents=[
-                            types.Part.from_uri(file_uri=yt_url, mime_type="video/mp4"),
-                            types.Part.from_text(text=prompt)
-                        ],
-                        config={
+                        config = {
                             "response_mime_type": "application/json",
                             "response_schema": {
                                 "type": "OBJECT",
@@ -148,11 +110,65 @@ with tab2:
                                 "required": ["title", "original_servings", "ingredients", "steps"]
                             }
                         }
-                    )
+                        response = generate_recipe_with_retry([image, prompt], config)
+                        st.session_state.recipe_data = json.loads(response.text)
+                        st.success("Successfully extracted recipe from image!")
+                    except Exception as e:
+                        st.error(f"Failed to process image due to server load: {e}. Please try clicking the button again in a few seconds.")
+
+# --- TAB 2: YouTube Video Link ---
+with tab2:
+    st.header("Extract Recipe from YouTube Link")
+    yt_url = st.text_input("Paste YouTube Video URL here:", placeholder="https://www.youtube.com/watch?v=...")
+
+    if st.button("✨ Extract Recipe from Video"):
+        if not yt_url:
+            st.warning("Please enter a valid YouTube URL.")
+        elif not client:
+            st.error("Gemini API key is missing! Set it in environment variables or Streamlit secrets.")
+        else:
+            with st.spinner("Gemini is analyzing the cooking video directly (retrying if servers are busy)..."):
+                try:
+                    prompt = """
+                    You are a strict data-entry parser. Watch this cooking video and extract the recipe verbatim.
+                    Map the extracted recipe strictly into the requested JSON schema. Do not invent or substitute ingredients.
+                    """
+                    config = {
+                        "response_mime_type": "application/json",
+                        "response_schema": {
+                            "type": "OBJECT",
+                            "properties": {
+                                "title": {"type": "STRING"},
+                                "original_servings": {"type": "INTEGER"},
+                                "ingredients": {
+                                    "type": "ARRAY",
+                                    "items": {
+                                        "type": "OBJECT",
+                                        "properties": {
+                                            "name": {"type": "STRING"},
+                                            "amount": {"type": "NUMBER"},
+                                            "unit": {"type": "STRING"}
+                                        },
+                                        "required": ["name", "amount", "unit"]
+                                    }
+                                },
+                                "steps": {
+                                    "type": "ARRAY",
+                                    "items": {"type": "STRING"}
+                                }
+                            },
+                            "required": ["title", "original_servings", "ingredients", "steps"]
+                        }
+                    }
+                    contents = [
+                        types.Part.from_uri(file_uri=yt_url, mime_type="video/mp4"),
+                        types.Part.from_text(text=prompt)
+                    ]
+                    response = generate_recipe_with_retry(contents, config)
                     st.session_state.recipe_data = json.loads(response.text)
                     st.success("Successfully extracted recipe from video!")
                 except Exception as e:
-                    st.error(f"Failed to process video: {e}")
+                    st.error(f"Failed to process video due to server load: {e}. Please try clicking the button again in a few seconds.")
 
 # --- TAB 3: Saved Recipes Collection ---
 with tab3:
