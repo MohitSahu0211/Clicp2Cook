@@ -1,0 +1,5 @@
+streamlit
+pillow
+youtube-transcript-api
+json
+os
