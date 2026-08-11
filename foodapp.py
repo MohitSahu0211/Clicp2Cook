@@ -12,7 +12,7 @@ st.title("📜 Scalecipe: Digital Recipe Box")
 api_key = st.secrets.get("GEMINI_API_KEY", os.environ.get("GEMINI_API_KEY"))
 client = genai.Client(api_key=api_key) if api_key else None
 
-# --- Helper Functions ---
+# --- Helper Functions --
 def load_saved_recipes():
     if os.path.exists("saved_recipes.json"):
         with open("saved_recipes.json", "r") as f:
