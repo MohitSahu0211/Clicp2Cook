@@ -64,36 +64,41 @@ with tab1:
                 with st.spinner("Processing image strictly with AI..."):
                     try:
                         prompt = """
-                        You are a strict data extraction assistant. Extract the recipe EXACTLY as it appears in this image. 
-                        CRITICAL RULES:
-                        1. Do NOT invent, guess, or change any ingredients or steps. 
-                        2. Only use the exact ingredients and steps present in the image. Do not replace them with a generic recipe.
-                        3. If an amount is missing or unclear, set amount to 1.0 or 0.
-                        
-                        Return it strictly as a valid JSON object with this exact structure:
-                        {
-                            "title": "Exact Title from Image",
-                            "original_servings": 4,
-                            "ingredients": [
-                                {"name": "ingredient name", "amount": 2.0, "unit": "unit"}
-                            ],
-                            "steps": [
-                                "Step 1..."
-                            ]
-                        }
-                        Return ONLY the JSON without markdown formatting blocks.
+                        You are a strict data transcription tool. Transcribe the recipe from this image verbatim. 
+                        Do not invent, swap, or alter ingredients or steps. Extract only what is written.
                         """
                         response = client.models.generate_content(
                             model='gemini-3.6-flash',
-                            contents=[image, prompt]
+                            contents=[image, prompt],
+                            config={
+                                "response_mime_type": "application/json",
+                                "response_schema": {
+                                    "type": "OBJECT",
+                                    "properties": {
+                                        "title": {"type": "STRING"},
+                                        "original_servings": {"type": "INTEGER"},
+                                        "ingredients": {
+                                            "type": "ARRAY",
+                                            "items": {
+                                                "type": "OBJECT",
+                                                "properties": {
+                                                    "name": {"type": "STRING"},
+                                                    "amount": {"type": "NUMBER"},
+                                                    "unit": {"type": "STRING"}
+                                                },
+                                                "required": ["name", "amount", "unit"]
+                                            }
+                                        },
+                                        "steps": {
+                                            "type": "ARRAY",
+                                            "items": {"type": "STRING"}
+                                        }
+                                    },
+                                    "required": ["title", "original_servings", "ingredients", "steps"]
+                                }
+                            }
                         )
-                        clean_text = response.text.strip()
-                        if clean_text.startswith("```"):
-                            clean_text = clean_text.split("```")[1]
-                            if clean_text.startswith("json"):
-                                clean_text = clean_text[4:].strip()
-                                
-                        st.session_state.recipe_data = json.loads(clean_text)
+                        st.session_state.recipe_data = json.loads(response.text)
                         st.success("Recipe successfully extracted from image!")
                     except Exception as e:
                         st.error(f"Failed to parse recipe from image: {e}")
@@ -114,38 +119,42 @@ with tab2:
                 with st.spinner("Processing recipe strictly with AI..."):
                     try:
                         prompt = f"""
-                        You are a strict data extraction assistant. Here is a cooking video transcript text (could be in English, Hindi, or Marathi):
+                        You are a strict data transcription tool. Transcribe the recipe verbatim from this text (could be English, Hindi, or Marathi):
                         {yt_transcript_text}
-                        
-                        CRITICAL RULES:
-                        1. Extract the recipe EXACTLY as spoken/written in the transcript. 
-                        2. Do NOT invent, assume, or substitute ingredients. 
-                        3. If exact quantities are not mentioned in the transcript, list the ingredient with amount 1.0 and unit "as required".
-                        
-                        Return it strictly as a valid JSON object with this structure:
-                        {{
-                            "title": "Recipe Title from Transcript",
-                            "original_servings": 4,
-                            "ingredients": [
-                                {{"name": "ingredient name", "amount": 2.0, "unit": "unit"}}
-                            ],
-                            "steps": [
-                                "Step 1..."
-                            ]
-                        }}
-                        Return ONLY the JSON without markdown formatting blocks.
+                        Do not invent, substitute, or alter anything. Extract only what is present in the text.
                         """
                         response = client.models.generate_content(
                             model='gemini-3.6-flash',
-                            contents=prompt
+                            contents=prompt,
+                            config={
+                                "response_mime_type": "application/json",
+                                "response_schema": {
+                                    "type": "OBJECT",
+                                    "properties": {
+                                        "title": {"type": "STRING"},
+                                        "original_servings": {"type": "INTEGER"},
+                                        "ingredients": {
+                                            "type": "ARRAY",
+                                            "items": {
+                                                "type": "OBJECT",
+                                                "properties": {
+                                                    "name": {"type": "STRING"},
+                                                    "amount": {"type": "NUMBER"},
+                                                    "unit": {"type": "STRING"}
+                                                },
+                                                "required": ["name", "amount", "unit"]
+                                            }
+                                        },
+                                        "steps": {
+                                            "type": "ARRAY",
+                                            "items": {"type": "STRING"}
+                                        }
+                                    },
+                                    "required": ["title", "original_servings", "ingredients", "steps"]
+                                }
+                            }
                         )
-                        clean_text = response.text.strip()
-                        if clean_text.startswith("```"):
-                            clean_text = clean_text.split("```")[1]
-                            if clean_text.startswith("json"):
-                                clean_text = clean_text[4:].strip()
-                                
-                        st.session_state.recipe_data = json.loads(clean_text)
+                        st.session_state.recipe_data = json.loads(response.text)
                         st.success("Successfully parsed recipe from transcript!")
                     except Exception as e:
                         st.error(f"Failed to parse recipe: {e}")
