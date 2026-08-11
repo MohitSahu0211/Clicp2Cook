@@ -7,9 +7,9 @@ from google import genai
 from google.genai import types
 
 # Page Configuration
-st.set_page_config(page_title="Scalecipe", page_icon="📜", layout="centered")
+st.set_page_config(page_title="Click2Cook", page_icon="📜", layout="centered")
 
-st.title("📜 Scalecipe: Digital Recipe Box & Smart Scaler")
+st.title("📜 Click2Cook: Digital Recipe Box & Smart Scaler")
 st.write("Extract recipes directly from YouTube links or handwritten cards, save them, and scale portions instantly!")
 
 # API Key Setup
