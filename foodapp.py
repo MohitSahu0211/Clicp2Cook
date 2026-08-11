@@ -127,6 +127,8 @@ with tab2:
                 st.error(str(ve))
             except Exception as e:
                 st.error("Your video has no caption")
+            except Exception as e:
+                st.error(f"Detailed YouTube Error: {e}")
         else:
             st.warning("Please enter a valid YouTube URL first.")
 
