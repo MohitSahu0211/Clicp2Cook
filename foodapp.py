@@ -103,64 +103,89 @@ with tab1:
                     except Exception as e:
                         st.error(f"Failed to parse recipe from image: {e}")
 
-# --- TAB 2: YouTube Transcript Text Area ---
+# --- TAB 2: YouTube Video URL ---
 with tab2:
-    st.header("Extract Recipe from YouTube Transcript")
-    st.write("1. Open your YouTube video, tap **'Show transcript'** in the description, and copy it.")
-    st.write("2. Paste the raw transcript text below (supports English, Hindi, or Marathi):")
-    
-    yt_transcript_text = st.text_area("Paste YouTube Transcript Text Here:", height=150, placeholder="Paste copied text here...")
+  st.header("Extract Recipe from YouTube Link")
+  st.write(
+      "Paste the public YouTube video link below (supports English, Hindi, or"
+      " Marathi cooking videos):"
+  )
 
-    if st.button("✨ Extract Recipe from Text"):
-        if yt_transcript_text:
-            if not client:
-                st.error("Gemini API Key is missing! Set GEMINI_API_KEY environment variable or in Streamlit secrets.")
-            else:
-                with st.spinner("Processing recipe strictly with AI..."):
-                    try:
-                        prompt = f"""
-                        You are a strict data transcription tool. Transcribe the recipe verbatim from this text (could be English, Hindi, or Marathi):
-                        {yt_transcript_text}
-                        Do not invent, substitute, or alter anything. Extract only what is present in the text.
+  yt_url = st.text_input(
+      "YouTube Video URL:",
+      placeholder="https://www.youtube.com/watch?v=...",
+  )
+
+  if st.button("✨ Extract Recipe from YouTube Video"):
+    if yt_url:
+      if not client:
+        st.error(
+            "Gemini API Key is missing! Set GEMINI_API_KEY environment variable"
+            " or in Streamlit secrets."
+        )
+      else:
+        with st.spinner(
+            "Gemini is analyzing the cooking video directly (this may take a"
+            " moment)..."
+        ):
+          try:
+            prompt = """
+                        You are a strict data transcription tool. Watch this cooking video and extract the recipe verbatim.
+                        CRITICAL RULES:
+                        1. Do not invent, substitute, or alter ingredients or steps. Extract only what is shown or spoken in the video.
+                        2. Map the extracted recipe strictly into the requested JSON schema.
                         """
-                        response = client.models.generate_content(
-                            model='gemini-3.6-flash',
-                            contents=prompt,
-                            config={
-                                "response_mime_type": "application/json",
-                                "response_schema": {
-                                    "type": "OBJECT",
-                                    "properties": {
-                                        "title": {"type": "STRING"},
-                                        "original_servings": {"type": "INTEGER"},
-                                        "ingredients": {
-                                            "type": "ARRAY",
-                                            "items": {
-                                                "type": "OBJECT",
-                                                "properties": {
-                                                    "name": {"type": "STRING"},
-                                                    "amount": {"type": "NUMBER"},
-                                                    "unit": {"type": "STRING"}
-                                                },
-                                                "required": ["name", "amount", "unit"]
-                                            }
-                                        },
-                                        "steps": {
-                                            "type": "ARRAY",
-                                            "items": {"type": "STRING"}
-                                        }
-                                    },
-                                    "required": ["title", "original_servings", "ingredients", "steps"]
-                                }
-                            }
-                        )
-                        st.session_state.recipe_data = json.loads(response.text)
-                        st.success("Successfully parsed recipe from transcript!")
-                    except Exception as e:
-                        st.error(f"Failed to parse recipe: {e}")
-        else:
-            st.warning("Please paste the transcript text first.")
-
+            response = client.models.generate_content(
+                model="gemini-3.6-flash",
+                contents=[
+                    types.Content(
+                        parts=[
+                            types.Part(
+                                file_data=types.FileData(file_uri=yt_url)
+                            ),
+                            types.Part(text=prompt),
+                        ]
+                    )
+                ],
+                config={
+                    "response_mime_type": "application/json",
+                    "response_schema": {
+                        "type": "OBJECT",
+                        "properties": {
+                            "title": {"type": "STRING"},
+                            "original_servings": {"type": "INTEGER"},
+                            "ingredients": {
+                                "type": "ARRAY",
+                                "items": {
+                                "type": "OBJECT",
+                                "properties": {
+                                    "name": {"type": "STRING"},
+                                    "amount": {"type": "NUMBER"},
+                                    "unit": {"type": "STRING"},
+                                },
+                                "required": ["name", "amount", "unit"],
+                            },
+                        },
+                        "steps": {
+                            "type": "ARRAY",
+                            "items": {"type": "STRING"},
+                        },
+                    },
+                    "required": [
+                        "title",
+                        "original_servings",
+                        "ingredients",
+                        "steps",
+                    ],
+                },
+            },
+        )
+        st.session_state.recipe_data = json.loads(response.text)
+        st.success("Successfully extracted recipe from YouTube video!")
+      except Exception as e:
+        st.error(f"Failed to parse recipe from video: {e}")
+  else:
+    st.warning("Please enter a YouTube video URL first.")
 # --- TAB 3: Saved Recipes Collection ---
 with tab3:
     st.header("📚 Your Saved Recipe Box")
